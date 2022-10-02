@@ -1,5 +1,7 @@
 # ArgoCD [ApplicationSet](https://argocd-applicationset.readthedocs.io/en/stable/) + [Vault Plugin](https://argocd-vault-plugin.readthedocs.io/en/stable/) Advanced Use Case with Helm
 
+TL;DR: Helm local/remote with external value deployments + Kubernetes Manifests Deployments + With/Without Vault Plugins and you can dig into one app of a cluster at any time.
+
 In this demo, you will see a custom solution for managing clusters with Kubernetes manifests and helm packages within a mono or multi repo while keeping your secrets in a vault that [ArgoCD Vault Plugin](https://argocd-vault-plugin.readthedocs.io/en/stable/backends/) supports as backend.
 
 With the correct YAML manifests and helm packages, you can deploy any resource to any cloud or on-premise Kubernetes platform. In this way, you can even deploy operators, and their instances with YAML manifests.
