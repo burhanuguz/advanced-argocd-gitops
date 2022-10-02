@@ -1,0 +1,10 @@
+repo: https://github.com/burhanuguz/advanced-argocd-gitops.git
+plugin: 'argocd-vault-plugin-helm-remote-repo'
+argoProject: 'default'
+syncOrder: '0'
+branch: 'master'
+appName: 'app-1'
+chartName: 'hello-world'
+chartRepository: 'https://helm.github.io/examples'
+chartVersion: '0.1.0'
+namespace: 'app-1-namespace'

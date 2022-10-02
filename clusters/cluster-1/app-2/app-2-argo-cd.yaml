@@ -1,0 +1,8 @@
+repo: https://github.com/burhanuguz/advanced-argocd-gitops.git
+plugin: 'argocd-vault-plugin-helm-local-repo'
+argoProject: 'default'
+syncOrder: '0'
+branch: 'master'
+appName: 'app-2'
+chartName: 'hello-world-0.1.0'
+namespace: 'app-2-namespace'

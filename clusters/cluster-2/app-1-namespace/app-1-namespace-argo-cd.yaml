@@ -1,0 +1,7 @@
+repo: https://github.com/burhanuguz/advanced-argocd-gitops.git
+plugin: 'argocd-vault-plugin'
+argoProject: 'default'
+syncOrder: '0'
+branch: 'master'
+namespace: 'app-1-namespace'
+appName: 'app-1-namespace'

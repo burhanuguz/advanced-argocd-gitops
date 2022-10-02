@@ -1,0 +1,11 @@
+repo: https://github.com/burhanuguz/advanced-argocd-gitops.git
+plugin: 'argocd-vault-plugin-helm-remote-repo'
+argoProject: 'default'
+syncOrder: '0'
+branch: 'master'
+appName: 'argocd'
+chartName: 'argo-cd'
+chartRepository: 'https://argoproj.github.io/argo-helm'
+chartVersion: '5.5.7'
+namespace: 'argocd'
+# keyVault: argocd-vault-plugin-azure-credentials-in-cluster

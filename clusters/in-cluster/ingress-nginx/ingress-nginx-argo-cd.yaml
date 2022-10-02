@@ -1,0 +1,10 @@
+repo: https://github.com/burhanuguz/advanced-argocd-gitops.git
+plugin: 'argocd-vault-plugin-helm-remote-repo'
+argoProject: 'default'
+syncOrder: '0'
+branch: 'master'
+appName: 'ingress-nginx'
+chartName: 'ingress-nginx'
+chartRepository: 'https://kubernetes.github.io/ingress-nginx'
+chartVersion: '4.2.5'
+namespace: 'ingress-nginx'

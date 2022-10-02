@@ -1,0 +1,160 @@
+global:
+  image:
+    repository: &avpCmpImage quay.io/argoproj/argocd
+
+# redis-ha:
+#   enabled: true
+
+extraObjects:
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: cmp-plugin
+    data:
+      argocd-vault-plugin.yaml: |
+        ---
+        apiVersion: argoproj.io/v1alpha1
+        kind: ConfigManagementPlugin
+        metadata:
+          name: argocd-vault-plugin
+        spec:
+          lockRepo: false
+          allowConcurrency: true
+          discover:
+            find:
+              command:
+                - bash
+                - "-c"
+                - "[[ ${ARGOCD_ENV_pluginName} =~ ^(argocd-vault-plugin|argocd-vault-plugin-helm-local-repo|argocd-vault-plugin-helm-remote-repo)$ ]] && echo 'OK'"
+          generate:
+            command:
+              - bash
+              - "-c"
+              - |
+                avpCommand="| argocd-vault-plugin generate -s ${ARGOCD_ENV_AVP_SECRET} -"
+                [[ $ARGOCD_ENV_AVP_SECRET =~ ^(\{\{ .+ \}\}|)$ ]] && avpCommand="| cat -"
+                
+                for valuesYaml in ${ARGOCD_ENV_valuesYaml}; do
+                  [[ -f ${valuesYaml} ]] && externalYamlFiles="$externalYamlFiles --values ${valuesYaml}"
+                done
+                
+                helmBaseCommand="helm template $ARGOCD_ENV_chartReleaseName -n $ARGOCD_APP_NAMESPACE --kube-version ${KUBE_VERSION} --api-versions ${KUBE_API_VERSIONS} ${externalYamlFiles} $ARGOCD_ENV_extraArgs"
+                helmLocalChartFolder="$(pwd | cut -d "/" -f-4)/charts/$ARGOCD_ENV_chartName/"
+                helmLocalDependency="helm dependency update ${helmLocalChartFolder} 2>&1 >/dev/null;"
+                helmRemoteExtra="$ARGOCD_ENV_chartName --repo $ARGOCD_ENV_chartRepository --version $ARGOCD_ENV_chartVersion"
+                
+                if [[ "${ARGOCD_ENV_pluginName}" == 'argocd-vault-plugin' ]]; then
+                  command='for yamlFile in $(ls -I *-argo-cd.yaml); do cat ${yamlFile}; echo -e "\n---"; done'
+                elif [[ "${ARGOCD_ENV_pluginName}" == 'argocd-vault-plugin-helm-local-repo' ]]; then
+                  command="${helmLocalDependency} ${helmBaseCommand} ${helmLocalChartFolder}"
+                elif [[ "${ARGOCD_ENV_pluginName}" == 'argocd-vault-plugin-helm-remote-repo' ]]; then
+                  command="${helmBaseCommand} ${helmRemoteExtra}"
+                fi
+                
+                eval "${command} ${avpCommand}"
+
+server:
+  # autoscaling:
+  #   enabled: true
+  #   minReplicas: 2
+  clusterAdminAccess:
+    enabled: false
+  ingress:
+    enabled: true
+    # Add annotations below if you want to secure your cluster
+    # annotations:
+    #   nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    #   nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+    hosts:
+      - argocd.local.gd
+    # Add values like below if you want to secure your cluster
+    # tls:
+    #   - secretName: argocd-secret
+    #     hosts:
+    #       - argocd.local.gd
+    # Change http from false to true
+    # https: true
+    https: false
+
+repoServer:
+  # autoscaling:
+  #   enabled: true
+  #   minReplicas: 2
+  clusterAdminAccess:
+    enabled: false
+  initContainers:
+    - name: download-tools
+      image: alpine:3.8
+      command: [sh, -c]
+      # Don't forget to update this to whatever the stable release version is
+      # Note the lack of the `v` prefix unlike the git tag
+      env:
+        - name: AVP_VERSION
+          value: "1.13.0"
+      args:
+        - >-
+          wget -O argocd-vault-plugin
+          https://github.com/argoproj-labs/argocd-vault-plugin/releases/download/v${AVP_VERSION}/argocd-vault-plugin_${AVP_VERSION}_linux_amd64 &&
+          chmod +x argocd-vault-plugin &&
+          mv argocd-vault-plugin /custom-tools/
+      volumeMounts:
+        - mountPath: /custom-tools
+          name: custom-tools
+  extraContainers:
+    - name: argocd-vault-plugin
+      command: [/var/run/argocd/argocd-cmp-server]
+      image: *avpCmpImage
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+      volumeMounts:
+        - mountPath: /var/run/argocd
+          name: var-files
+        - mountPath: /home/argocd/cmp-server/plugins
+          name: plugins
+
+        # Register plugins into sidecar
+        - mountPath: /home/argocd/cmp-server/config/plugin.yaml
+          subPath: argocd-vault-plugin.yaml
+          name: cmp-plugin
+
+        # Important: Mount tools into $PATH
+        - name: custom-tools
+          subPath: argocd-vault-plugin
+          mountPath: /usr/local/bin/argocd-vault-plugin
+
+  volumes:
+    - configMap:
+        name: cmp-plugin
+      name: cmp-plugin
+    - name: custom-tools
+      emptyDir: {}
+  serviceAccount:
+    automountServiceAccountToken: true
+  rbac:
+    - apiGroups:
+      - ""
+      resources:
+      - secrets
+      verbs:
+      - get
+      - list
+      - watch
+
+# applicationSet:
+#   replicas: 2
+
+configs:
+  params:
+    server.insecure: true
+  # Change values like below if you want to secure your cluster
+  # params:
+  #   server.insecure: false
+  # secret:
+  #   argocdServerTlsConfig:
+        # You can add secrets from vault
+  #     crt: |
+  #       <path:burhanuguz-kv#argocd-local-gd-crt>
+        # You can add secrets from vault
+  #     key: |
+  #       <path:burhanuguz-kv#argocd-local-gd-key>

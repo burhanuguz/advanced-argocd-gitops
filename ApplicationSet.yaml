@@ -1,0 +1,56 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: cluster-apps
+spec:
+  syncPolicy:
+    preserveResourcesOnDeletion: true
+  generators:
+    - git:
+        repoURL: https://github.com/burhanuguz/advanced-argocd-gitops.git
+        revision: HEAD
+        files:
+          - path: 'clusters/*/*/*-argo-cd.yaml'
+  template:
+    metadata:
+      name: '{{ path[1] }}-{{ appName }}'
+      namespace: argo-cd
+      annotations:
+        argocd.argoproj.io/sync-wave: '{{ syncOrder }}'
+        argocd.argoproj.io/manifest-generate-paths: '{{ path }};/commonValues/;/charts/{{ chartName }}'
+    spec:
+      syncPolicy:
+        automated: {}
+      destination:
+        name: '{{ path[1] }}'
+        namespace: '{{ namespace }}'
+      project: '{{ argoProject }}'
+      source:
+        repoURL: '{{ repo }}'
+        targetRevision: '{{ branch }}'
+        path: '{{ path }}'
+        plugin:
+          env:
+            - name: pluginName
+              value: '{{ plugin }}'
+            - name: AVP_SECRET
+              value: '{{ keyVault }}'
+            ## These values are needed when both local and remote helm plugin is used
+            - name: chartName
+              value: '{{ chartName }}'
+            - name: chartReleaseName
+              value: '{{ appName }}'
+            ## chartRepository and chartVersion values are needed when helm remote plugin is used
+            - name: chartRepository
+              value: '{{ chartRepository }}'
+            - name: chartVersion
+              value: '{{ chartVersion }}'
+            ## Values yaml, it won't give error even if it is not present.
+            ## Order is important, last one overwrites.
+            - name: valuesYaml
+              value: |
+                ../../../commonValues/{{ appName }}-values.yaml
+                {{ appName }}-values.yaml
+            ## You can remove --include-crds as well or put new extra args with spaces.
+            - name: extraArgs
+              value: '--include-crds'
