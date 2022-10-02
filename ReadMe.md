@@ -391,3 +391,13 @@ docker exec -it master-control-plane bash -c "KUBECONFIG=${kindconfig} /root/arg
 ![3](https://user-images.githubusercontent.com/59168275/193477580-5e6e1021-7392-4ef2-941b-aa303f1e70d4.gif)
 
 ## Summary
+
+In summary, you can add numerous clusters in mono/multi mix git repositories and manage them with the vault plugin as well.
+I absolutely recommend you to have one vault backed for the master cluster, and put cluster credentials to the vault as well. Apply those credentials via Vault, and you will never need to redefine it even if you lose the clusters because you already defined it and manage it via GitOps :)
+Also, you can manage even Cilium, OPA, service mesh, and other tools via ArgoCD.
+You can separate Vaults, and Repos of apps for each cluster you want to deploy. You can create ArgoCD projects and give access rights that would give access to deploy very few resources. You could make it in an automated way, and let the developers just define the helm values outside of the monorepo as well. You could keep clusters state in it, and get the values outside of that repo.
+
+Helm local/remote with external value deployments + Kubernetes Manifests Deployments + With/Without Vault Plugins and you can dig into one app of a cluster at any time.
+
+It is just to show how powerful ArgoCD can be. Hope it can be used and loved.
+Cheers :)
