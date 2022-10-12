@@ -54,7 +54,7 @@ spec:
       namespace: argo-cd
       annotations:
         argocd.argoproj.io/sync-wave: '{{ syncOrder }}'
-        argocd.argoproj.io/manifest-generate-paths: '{{ path }};/commonValues/;/charts/{{ chartName }}'
+        argocd.argoproj.io/manifest-generate-paths: '{{ path }};/commonValues/;charts/{{ chartName }}'
     spec:
       # The automated sync policy can be removed, but you will have to implement your
       # own solution with argocd cli.
