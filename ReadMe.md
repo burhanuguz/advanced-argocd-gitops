@@ -137,7 +137,7 @@ chartVersion: '5.5.6'
 namespace: 'argocd'
 # Which keyVault secret, i.e which Vault will be used for the app. Not necessary to put.
 # You can delete it if you don't use it.
-keyVault:
+keyVault: ''
 ```
 
 This is all done with a customized plugin below. I have added a plugin as a sidecar and added this YAML file to **configMap** because it is not an actual Kubernetes resource. There is a value YAML inside of this repository you can check.
