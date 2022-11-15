@@ -296,6 +296,9 @@ helm upgrade --install argocd argo-cd --kube-context "kind-master" \
 
 ## Wait for argocd to get ready
 kubectl --context "kind-master" wait --namespace argocd --for=condition=ready pod --all --timeout=120s
+
+## Create ingress for ArgoCD
+kubectl create ingress argocd --class=nginx -n argocd --annotation=nginx.ingress.kubernetes.io/force-ssl-redirect=true --annotation=nginx.ingress.kubernetes.io/ssl-passthrough=true --rule="argocd.local.gd/*=argocd-server:443"
 ```
 
 - After that, you will be able to login into the cluster. Apply argo-app yaml that has ApplicationSet. With it, you will be able to make cluster deployments in the next section.
