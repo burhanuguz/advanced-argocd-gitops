@@ -185,7 +185,7 @@ spec:
         
         # If-else structure to determine which command should be executed
         if [[ "${ARGOCD_ENV_pluginName}" == 'argocd-vault-plugin' ]]; then
-          command='for yamlFile in $(ls -I *-argo-cd.yaml); do cat ${yamlFile}; echo -e "\n---"; done'
+          command='for yamlFile in $(ls -I *-argo-cd.yaml -I *-argo-cd.yml -1 | egrep "(yaml|yml)$"); do cat ${yamlFile}; echo -e "\n---"; done'
         elif [[ "${ARGOCD_ENV_pluginName}" == 'argocd-vault-plugin-helm-local-repo' ]]; then
           command="${helmLocalDependency} ${helmBaseCommand} ${helmLocalChartFolder}"
         elif [[ "${ARGOCD_ENV_pluginName}" == 'argocd-vault-plugin-helm-remote-repo' ]]; then
