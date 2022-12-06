@@ -44,7 +44,7 @@ extraObjects:
                 helmRemoteExtra="$ARGOCD_ENV_chartName --repo $ARGOCD_ENV_chartRepository --version $ARGOCD_ENV_chartVersion"
                 
                 if [[ "${ARGOCD_ENV_pluginName}" == 'argocd-vault-plugin' ]]; then
-                  command='for yamlFile in $(ls -I *-argo-cd.yaml -I *-argo-cd.yml -1 | egrep "(yaml|yml)$"); do cat ${yamlFile}; echo -e "\n---"; done'
+                  command='for yamlFile in $(ls -I Application.yaml -I Application.yml -1 | egrep "(ya?ml)$"); do cat ${yamlFile}; echo -e "\n---"; done'
                 elif [[ "${ARGOCD_ENV_pluginName}" == 'argocd-vault-plugin-helm-local-repo' ]]; then
                   command="${helmLocalDependency} ${helmBaseCommand} ${helmLocalChartFolder}"
                 elif [[ "${ARGOCD_ENV_pluginName}" == 'argocd-vault-plugin-helm-remote-repo' ]]; then

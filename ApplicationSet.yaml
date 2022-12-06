@@ -10,14 +10,14 @@ spec:
         repoURL: https://github.com/burhanuguz/advanced-argocd-gitops.git
         revision: HEAD
         files:
-          - path: 'clusters/*/*/*-argo-cd.yaml'
+          - path: 'clusters/*/*/Application.yaml'
   template:
     metadata:
       name: '{{ path[1] }}-{{ appName }}'
       namespace: argo-cd
       annotations:
         argocd.argoproj.io/sync-wave: '{{ syncOrder }}'
-        argocd.argoproj.io/manifest-generate-paths: '{{ path }};/commonValues/;charts/{{ chartName }}'
+        argocd.argoproj.io/manifest-generate-paths: '{{ path }};commonValues/;charts/{{ chartName }}'
     spec:
       syncPolicy:
         automated: {}
@@ -50,7 +50,7 @@ spec:
             - name: valuesYaml
               value: |
                 ../../../commonValues/{{ appName }}-values.yaml
-                {{ appName }}-values.yaml
+                values.yaml
             ## You can remove --include-crds as well or put new extra args with spaces.
             - name: extraArgs
               value: '--include-crds'
