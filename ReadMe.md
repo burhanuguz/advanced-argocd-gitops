@@ -175,7 +175,7 @@ spec:
         done
         
         # Helm base command for both repo in remote or in a git repository.
-        helmBaseCommand="helm template $ARGOCD_ENV_chartReleaseName -n $ARGOCD_APP_NAMESPACE --kube-version ${KUBE_VERSION} --api-versions ${KUBE_API_VERSIONS} ${externalYamlFiles} $ARGOCD_ENV_extraArgs"
+        helmBaseCommand="helm template $ARGOCD_ENV_chartReleaseName -n $ARGOCD_APP_NAMESPACE --kube-version ${KUBE_VERSION} --api-versions ${KUBE_API_VERSIONS//,/ --api-versions } ${externalYamlFiles} $ARGOCD_ENV_extraArgs"
         # Helm chart location when helm chart in a git repository.
         helmLocalChartFolder="$(pwd | cut -d "/" -f-4)/charts/$ARGOCD_ENV_chartName/"
         # Dependency update should be done for local charts that has dependencies
