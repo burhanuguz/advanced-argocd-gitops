@@ -38,7 +38,7 @@ extraObjects:
                   [[ -f ${valuesYaml} ]] && externalYamlFiles="$externalYamlFiles --values ${valuesYaml}"
                 done
                 
-                helmBaseCommand="helm template $ARGOCD_ENV_chartReleaseName -n $ARGOCD_APP_NAMESPACE --kube-version ${KUBE_VERSION} --api-versions ${KUBE_API_VERSIONS} ${externalYamlFiles} $ARGOCD_ENV_extraArgs"
+                helmBaseCommand="helm template $ARGOCD_ENV_chartReleaseName -n $ARGOCD_APP_NAMESPACE --kube-version ${KUBE_VERSION} --api-versions ${KUBE_API_VERSIONS//,/ --api-versions } ${externalYamlFiles} $ARGOCD_ENV_extraArgs"
                 helmLocalChartFolder="$(pwd | cut -d "/" -f-4)/charts/$ARGOCD_ENV_chartName/"
                 helmLocalDependency="helm dependency update ${helmLocalChartFolder} 2>&1 >/dev/null;"
                 helmRemoteExtra="$ARGOCD_ENV_chartName --repo $ARGOCD_ENV_chartRepository --version $ARGOCD_ENV_chartVersion"
