@@ -2,7 +2,7 @@
 
 TL;DR: Helm local/remote with external value deployments + Kubernetes Manifests Deployments + With/Without Vault Plugins and you can dig into one app of a cluster at any time.
 
-In this demo, you will see a custom solution for managing clusters with Kubernetes manifests and helm packages within a mono or multi repo while keeping your secrets in a vault that [ArgoCD Vault Plugin](https://argocd-vault-plugin.readthedocs.io/en/stable/backends/) supports as backend.
+In this demo, you will see a custom solution for managing clusters with Kubernetes manifests and helm packages within a mono or multi-repo while keeping your secrets in a vault that [ArgoCD Vault Plugin](https://argocd-vault-plugin.readthedocs.io/en/stable/backends/) supports as backend.
 
 With the correct YAML manifests and helm packages, you can deploy any resource to any cloud or on-premise Kubernetes platform. In this way, you can even deploy operators, and their instances with YAML manifests.
 
@@ -16,7 +16,7 @@ I prevented child Application objects generated deployment or any other resource
 
 The architecture has quite complicated sides in it. Because it is making all changes in just one object, and from it, child objects will be created for each cluster.
 
-Originally [**app of apps pattern**](https://argo-cd.readthedocs.io/en/stable/operator-manual/cluster-bootstrapping/#app-of-apps-pattern) was the idea that came to my mind, but after discovering ApplicationSet and its generators, I could invent an idea to solve for almost any case and apply it to numerous clusters with in(or with many) repos, and the biggest advantage is to use argocd-vault-plugin to deploy applications without putting their secrets to git.
+Originally [**app of apps pattern**](https://argo-cd.readthedocs.io/en/stable/operator-manual/cluster-bootstrapping/#app-of-apps-pattern) was the idea that came to my mind, but after discovering ApplicationSet and its generators, I could invent an idea to solve for almost any case and apply it to numerous clusters within(or with many) repos, and the biggest advantage is to use argocd-vault-plugin to deploy applications without putting their secrets to git.
 
 Let's check the ApplicationSet.yaml to understand the concept better.
 
@@ -43,7 +43,7 @@ spec:
         files:
           - path: 'clusters/*/*/*-argo-cd.yaml'
   template:
-    # Application Objects will be created with cluster name, and application
+    # Application Objects will be created with cluster name and application
     # name concatenated. There is an option for syncOrder as well,
     # to sync applications in a more professional way.
     # There are high availability considerations for monorepos. I tried to put
@@ -110,12 +110,12 @@ spec:
               value: '--include-crds'
 ```
 
-And here is the application manifest file that will be deployed. Here is where you can do the trick for mono or multirepo
+And here is the application manifest file that will be deployed. Here is where you can do the trick for mono or multi repo
 
 ```yaml
 # Can be in different repo, but you have to keep the same folder structure in the repo you define
 repo: https://github.com/burhanuguz/advanced-argocd-gitops.git
-# Three typse of plugins are defined. argocd-vault-plugin, argocd-vault-plugin-helm-local-repo
+# Three types of plugins are defined. argocd-vault-plugin, argocd-vault-plugin-helm-local-repo
 # and argocd-vault-plugin-helm-remote-repo. 
 plugin: 'argocd-vault-plugin-helm-remote-repo'
 # As explained, you can use it to limit which resources are to be deployed.
@@ -128,20 +128,20 @@ branch: 'main'
 # This will be the release name.
 appName: 'argocd'
 ## These values are needed when the helm plugin is used. All values are
-## already explain itself.
+## already explains itself.
 chartName: 'argo-cd'
 chartRepository: 'https://argoproj.github.io/argo-helm'
-# It is not needed if chart is in repository.
+# It is not needed if the chart is in the repository.
 chartVersion: '5.5.6'
 # Which namespace to deploy.
 namespace: 'argocd'
-# Which keyVault secret, i.e which Vault will be used for the app. Not necessary to put.
+# Which keyVault secret, i.e which Vault will be used for the app? Not necessary to put.
 # You can delete it if you don't use it.
 keyVault: ''
 ```
 
 This is all done with a customized plugin below. I have added a plugin as a sidecar and added this YAML file to **configMap** because it is not an actual Kubernetes resource. There is a value YAML inside of this repository you can check.
-You can add this and argocd-vault-plugin binary to the sidecar's image and use it like that. That solution will make your configuration support on-premise environments as well.
+You can add this and the argocd-vault-plugin binary to the sidecar's image and use it like that. That solution will make your configuration support on-premise environments as well.
 Read more at: [Configure plugin via sidecar](https://argo-cd.readthedocs.io/en/stable/user-guide/config-management-plugins/#option-2-configure-plugin-via-sidecar)
 
 ```yaml
@@ -196,12 +196,12 @@ spec:
         eval "${command} ${avpCommand}"
 ```
 
-Here is the folder hierarchy. It has local and remote helm repositories, Kubernetes manifest YAML files, and deploying to specific clusters example in it all at once.
+Here is the folder hierarchy. It has local and remote helm repositories, Kubernetes manifest YAML files, and deploying to specific clusters examples in it all at once.
 
 ```bash
 📦advanced-argocd-gitops/                           ## 📦Git Folder
 ├── 📜ApplicationSet.yaml                           ## ├── 📜ApplicationSet manifest file that creates a child Application object for each definition will be done under the app folder.
-├── 📂charts                                        ## ├── 📂Charts folder for apps helm repos. Add helm chart here as a folder
+├── 📂charts                                        ## ├── 📂Charts folder for apps helm repos. Add the helm chart here as a folder
 │   └── 📂hello-world-0.1.0                         ## │   └── 📂Hello World helm chart added as an example with version
 │       ├── 📜.argocd-allow-concurrency             ## │       ├── 📜Add .argocd-allow-concurrency for best practice. Read here https://argo-cd.readthedocs.io/en/stable/operator-manual/high_availability/#enable-concurrent-processing
 │       ├── 📂..........                            ## │       ├── 📂Helm Chart specific files/folders
@@ -246,7 +246,7 @@ Here is the folder hierarchy. It has local and remote helm repositories, Kuberne
 
 ## Demo
 
-Quick demo on kind clusters. I had created '*.local.gd' tls certificate with a Root CA I created. In the ArgoCD values yaml file, I am using the key and crt that I store in Azure Key Vault. You can do the changes for your own cluster.
+Quick demo on kind clusters. I had created '*.local.gd' tls certificate with a Root CA I created. In the ArgoCD values yaml file, I use the key and crt I store in Azure Key Vault. You can do the changes for your own cluster.
 
 Script for the installation is in the git repo as well.
 
@@ -313,7 +313,7 @@ kubectl apply -f argo-app.yaml
 ### Logging into the ArgoCD instance, using ArgoCD Vault Plugin, and managing ArgoCD with ArgoCD
 
 - The second gif consists of several steps. I have used argocd-vault-plugin-helm-remote-repo and pulled the secret from my own Azure Key Vault.
-  - I created a service principal in Azure, then I gave Key Vault reader role with Azure RBAC. I have changed the Key Vault access policy to RBAC as well. Here is my Azure Key Vault Backed Yaml secret YAML as template.
+  - I created a service principal in Azure, then I gave a Key Vault reader role with Azure RBAC. I have changed the Key Vault access policy to RBAC as well. Here is my Azure Key Vault Backed Yaml secret YAML as a template.
 
 ```yaml
 apiVersion: v1
@@ -328,9 +328,9 @@ metadata:
   namespace: argocd
 ```
 
-- I showed logon in this gif. First, it is insecure and also in-cluster-argocd gives an error because the secret was not applied. I applied it and refreshed the Application resource, then the automated sync worked and made the changes.
+- I showed logon in this gif. First, it is insecure and also in-cluster-argocd gives an error because the secret was not applied. I applied it and refreshed the Application resource, then the automated sync worked, and made the changes.
 - My ArgoCD instance started working with my own certificate defined in it, and that certificate information comes from Azure Key Vault.
-- I commented ArgoCD with TLS configuration lines. You can integrate your Vault and make use of it.
+- I commented on ArgoCD with TLS configuration lines. You can integrate your Vault and make use of it.
 - At last, you will see ApplicationSet is degraded because it can not find cluster-1 and cluster-2. Let's create those clusters and manage them as well.
 
 ![2](https://user-images.githubusercontent.com/59168275/193478206-27b794f4-df4f-4275-9da9-9fe20117b458.gif)
@@ -358,14 +358,14 @@ wget --no-check-certificate https://argocd.local.gd/download/argocd-linux-amd64 
 - Next, copy the kubeconfig files and argocd-cli to master-control-plane
 
 ```bash
-## Copy argocd cli and kubeconfig files to kind-master cluster. Windows WSL2 can not communicate
+## Copy argocd cli and kubeconfig files to the kind-master cluster. Windows WSL2 can not communicate
 ## with containers. That's why it has to be dealt with inside the container.
 docker cp ../cluster-1-admin.conf master-control-plane:/root/
 docker cp ../cluster-2-admin.conf master-control-plane:/root/
 docker cp ../argocd-linux-amd64   master-control-plane:/root/argocd
 ```
 
-- Make argocd cli as executable
+- Make the argocd cli as an executable
 
 ```bash
 ## Run commands below to login and then and other clusters to argocd to manage
@@ -388,17 +388,17 @@ docker exec -it master-control-plane bash -c "KUBECONFIG=${kindconfig} /root/arg
 docker exec -it master-control-plane bash -c "KUBECONFIG=${kindconfig} /root/argocd cluster add --name cluster-2 --insecure kubernetes-admin-2@cluster-2 --yes"
 ```
 
-- Now, you can log in to ArgoCD and refresh the Application Set object there. You will see that applications will be deployed.
+- Now, you can log in to ArgoCD and refresh the Application Set object. You will see that applications will be deployed.
 
 ![3](https://user-images.githubusercontent.com/59168275/193477580-5e6e1021-7392-4ef2-941b-aa303f1e70d4.gif)
 
 ## Summary
 
 In summary, you can add numerous clusters in mono/multi mix git repositories and manage them with the vault plugin as well.
-I absolutely recommend you to have one vault backed for the master cluster, and put cluster credentials and other keyVault secrets to the vault as well. Apply those credentials and secrets via Vault, and you will never need to redefine it even if you lose the clusters because you already defined it and manage it via GitOps :)
+I absolutely recommend you have one vault backed for the master cluster, and put cluster credentials and other keyVault secrets into the vault as well. Apply those credentials and secrets via Vault, and you will never need to redefine it even if you lose the clusters because you already defined it and manage it via GitOps :)
 Also, you can manage even Cilium, OPA, service mesh, and other tools via ArgoCD.
 
-You can separate Vaults, and each apps repo's for each cluster you want to deploy. You can create ArgoCD projects declare it in *-argo-cd.yaml files. You would give access to very few resources in that project. And inside of the *-argo-cd.yaml, you can declare another repo that application developers would use. Application developers can add their manifests or values yaml and can't create resources they are not allowed to. You could make it in an automated way and keep clusters state in main repo only, and get the values outside of that repo.
+You can separate Vaults, and each app repo for each cluster you want to deploy. You can create ArgoCD projects and declare them in *-argo-cd.yaml files. You would give access to very few resources in that project. And inside of the *-argo-cd.yaml, you can declare another repo that application developers would use. Application developers can add their manifests or values yaml and can't create resources they are not allowed to. You could make it in automated way and keep clusters state in the main repo only, and get the values outside of that repo.
 
 Helm local/remote charts with external value deployments + Kubernetes Manifests Deployments + With/Without Vault Plugins and you can dig into one app of a cluster at any time.
 
