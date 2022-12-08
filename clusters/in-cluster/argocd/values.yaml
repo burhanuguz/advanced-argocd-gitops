@@ -57,8 +57,8 @@ server:
   # autoscaling:
   #   enabled: true
   #   minReplicas: 2
-  clusterAdminAccess:
-    enabled: false
+  # clusterAdminAccess:
+  #   enabled: false
   ingress:
     enabled: true
     # Add annotations below if you want to secure your cluster
@@ -80,8 +80,8 @@ repoServer:
   # autoscaling:
   #   enabled: true
   #   minReplicas: 2
-  clusterAdminAccess:
-    enabled: false
+  # clusterAdminAccess:
+  #   enabled: false
   initContainers:
     - name: download-tools
       image: alpine:3.8
