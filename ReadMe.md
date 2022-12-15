@@ -26,88 +26,97 @@ kind: ApplicationSet
 metadata:
   name: cluster-apps
 spec:
+  goTemplate: true
   # This option will prevent child Applications to be deleted.
   syncPolicy:
     preserveResourcesOnDeletion: true
   generators:
-    # This is the most important part of the architecture itself.
-    # In the Application.yaml files, there are definitions for what
-    # will be deployed in to cluster and how.
-    # Under the clusters folder, for each app, you will have a folder.
-    # For each app folder, you will put a declarative Application.yaml
-    # file which holds information about how the app will be deployed.
-    # As a local or remote helm chart, or as standard YAML manifests
+    # This is the most important part of the architecture itself. In the Application.yaml files,
+    # there are definitions for both what # will be deployed in to the cluster, and how it will
+    # be. Under the clusters folder, for each app, you will have a folder. For each app folder,
+    # you will put a declarative Application.yaml file which holds information about how the app
+    # will be deployed. As a local or remote helm chart, or just standard YAML manifests
     - git:
         repoURL: https://github.com/burhanuguz/advanced-argocd-gitops.git
         revision: HEAD
         files:
           - path: 'clusters/*/*/Application.yaml'
   template:
-    # Application Objects will be created with cluster name and application
-    # name concatenated. There is an option for syncOrder as well,
-    # to sync applications in a more professional way.
-    # There are high availability considerations for monorepos. I tried to put
-    # best practices as much as I can.
-    # Read more at  https://argo-cd.readthedocs.io/en/stable/operator-manual/high_availability/#monorepo-scaling-considerations  
+    # Application Objects will be created with cluster name and application name concatenated.
     metadata:
-      name: '{{ path[1] }}-{{ appName }}'
+      name: '{{ index .path.segments 1 }}-{{ .appName }}'
       namespace: argo-cd
       annotations:
-        argocd.argoproj.io/sync-wave: '{{ syncOrder }}'
-        argocd.argoproj.io/manifest-generate-paths: '/{{ path }};/commonValues/;/charts/{{ chartName }}'
+        # There is an option for syncOrder as well, to sync applications in a more professional
+        # way. Unfortunately, this feature can not be used with Applications that are created
+        # with Application Sets in the current version of ArgoCD. I put that anyway if it could
+        # be used in the future. # There are some issues opened for this one. It will be much
+        # better option once they are GA. It will be possible to bootstrap a cluster very easily
+        # in the future with application dependencies.
+        argocd.argoproj.io/sync-wave: '{{ .syncOrder }}'
+        # There are high availability considerations for monorepos. I tried to put best practices
+        # as much as I can. This one prevents Application syncs if no file is changed inside the
+        # Application's own folder. It is especially useful with monorepo's.
+        # Read more at
+        # https://argo-cd.readthedocs.io/en/stable/operator-manual/high_availability/#monorepo-scaling-considerations  
+        argocd.argoproj.io/manifest-generate-paths: '.'
+      labels:
+        clustername: '{{ index .path.segments 1 }}'
+        app: '{{ default "" .chartName }}'
     spec:
-      # The automated sync policy can be removed, but you will have to implement your
-      # own solution with argocd cli.
+      # The automated sync policy can be placed, but it will sync all of the apps that are created
+      # with Application Set. I tried to make it declarative as well, but you can not declare fields
+      # other than String fields and we need object field. For now I would sugget you to create your
+      # own solution with argocd cli or use the solution in the other branch that uses helm chart
+      # which adds another layer for creating Application objects in cluster. But you can declare
+      # anything with it 
+      #
+      # There are some issues opened as Advanced Application Set templating, when that happens,
+      # I will change the definitions here. You will be able to declare anything to App Objects.
       syncPolicy:
-        automated: {}
-      # You can also create projects for ArgoCD to limit which resources can be
-      # deployed into the cluster. This is a better solution when Application Developers
-      # try to do deployments. It will limit which resources they can create.
+        syncOptions:
+        - ServerSideApply=true
+      #   automated: {}
+      # You can also create projects for ArgoCD to limit which resources can be deployed into
+      # the cluster. This is a better solution when Application Developers try to do deployments.
+      # It will limit which resources they can create and what they will see in the UI as well.
       destination:
-        name: '{{ path[1] }}'
-        namespace: '{{ namespace }}'
-      project: '{{ argoProject }}'
+        name: '{{ index .path.segments 1 }}'
+        namespace: '{{ .namespace }}'
+      project: '{{ .argoProject }}'
       source:
-        # Here is the magic part that lets you define the multiple repos for each
-        # application. You can use it to store your manifests, helm charts, or
-        # external value files in a different repo.
-        repoURL: '{{ repo }}'
-        targetRevision: '{{ branch }}'
-        # Here is the folder that application manifests or helm values will be
-        # stored for each application.
-        path: '{{ path }}'
+        # Here is the magic part that lets you define the multiple repos for each # application.
+        # You can use it to store your manifests, helm charts, or external value files in a
+        # different repo.
+        repoURL: '{{ .repo }}'
+        targetRevision: '{{ .branch }}'
+        # Here is the folder that application manifests or helm values will be stored for each
+        # application.
+        path: '{{ .path.path }}'
         plugin:
           env:
             - name: clusterName
               value: '{{ name }}'
-            # Determines whether helm local or remote or just application manifest
-            # to be deployed
+            # Determines whether helm local or remote or just application manifest to be deployed
             - name: pluginName
-              value: '{{ plugin }}'
+              value: '{{ .plugin }}'
             # Determines which vault will be used for an app.
             # Read at https://argocd-vault-plugin.readthedocs.io/en/stable/backends/
             - name: AVP_SECRET
-              value: '{{ keyVault }}'
-            # These values are needed when the helm plugin is used. All values are already explain 
-            # itself.
+              value: '{{ default "" .keyVault }}'
+            # These values are needed when either local or remote helm plugin is used
             - name: chartName
-              value: '{{ chartName }}'
+              value: '{{ default "" .chartName }}'
             - name: chartReleaseName
-              value: '{{ appName }}'
-            ## chartRepository and chartVersion values are needed when the helm remote plugin is used
+              value: '{{ default "" .appName | trunc 53 }}'
+            ## chartRepository and chartVersion values are needed when helm remote plugin is used
             - name: chartRepository
-              value: '{{ chartRepository }}'
+              value: '{{ default "" .chartRepository }}'
             - name: chartVersion
-              value: '{{ chartVersion }}'
-            # Values YAML, won't give an error even if it is not present.
-            # Order is important, the last one overwrites.
-            - name: valuesYaml
-              value: |
-                ../../../commonValues/{{ appName }}-values.yaml
-                values.yaml
-            ## You can remove --include-crds as well or put new extra args with spaces.
+              value: '{{ default "" .chartVersion }}'
+            ## You can put extra args with spaces.
             - name: extraArgs
-              value: '--include-crds'
+              value: '{{ default "" .extraArgs }}'
 ```
 
 And here is the application manifest file that will be deployed. Here is where you can do the trick for mono or multi repo
@@ -120,8 +129,9 @@ repo: https://github.com/burhanuguz/advanced-argocd-gitops.git
 plugin: 'argocd-vault-plugin-helm-remote-repo'
 # As explained, you can use it to limit which resources are to be deployed.
 argoProject: 'default'
-# syncOrder is an important parameter. It will sync with the order. -1 would make it to 
-# deploy at first. It is useful when you have some dependencies and sync to be first.
+# Although it does not work with Application Set for now, syncOrder will be an important parameter.
+# in the future. It will do the sync with the order. It will useful when you have some dependencies
+# and sync to be at first. It will make it much easier to bootstrap clusters in the future.
 syncOrder: '0'
 # The branch can be defined as well.
 branch: 'main'
@@ -153,95 +163,102 @@ spec:
   lockRepo: false
   allowConcurrency: true
   discover:
-    ## Discover command catches if the application will be created or not with given values
+    ## Discover command catches if the application will be created with the plugin or not.
     find:
       command:
         - bash
         - "-c"
-        - "[[ ${ARGOCD_ENV_pluginName} =~ ^(argocd-vault-plugin|argocd-vault-plugin-helm-local-repo|argocd-vault-plugin-helm-remote-repo)$ ]] && echo 'OK'"
+        - "[[ ${ARGOCD_ENV_pluginName} =~ ^argocd-vault-plugin(|-helm-local-repo|-helm-remote-repo)$ ]] && echo 'OK'"
   generate:
     command:
       - bash
       - "-c"
       - |
-        # By default, the vault plugin will use the secret defined in the app's Application.yaml
-        avpCommand="| argocd-vault-plugin generate -s ${ARGOCD_ENV_AVP_SECRET} -"
-        # If the keyVault value is empty or the ApplicationSet could not evaluate and give value
-        # like '{{ .* }}', this will change it to cat command and will prevent errors.
-        [[ $ARGOCD_ENV_AVP_SECRET =~ ^(\{\{ .+ \}\}|)$ ]] && avpCommand="| cat -"
+        rootFolder=$(pwd | cut -d "/" -f-4)
         
-        for valuesYaml in ${ARGOCD_ENV_valuesYaml}; do
+        # The vault plugin binary will use the secret name defined in the Application.yaml
+        # If the keyVault value is empty, the command will not be defined and vault plugin
+        # not be used. It will just generate manifest files.
+        [[ -n "${ARGOCD_ENV_AVP_SECRET}" ]] && avpCommand="| argocd-vault-plugin generate -s ${ARGOCD_ENV_AVP_SECRET} -"
+        
+        # Values YAML's in the order will be checked if they are there or not. If not, they
+        # will not be added in the externalYamlFiles parameter. You can declare two values
+        # YAML. A common/base YAML file for all clusters, and cluster specific YAML file
+        # which would be inside of the Application's own path.
+        for valuesYaml in "${rootFolder}/commonValues/${ARGOCD_ENV_chartReleaseName}/values.yaml" "values.yaml"; do
           [[ -f ${valuesYaml} ]] && externalYamlFiles="$externalYamlFiles --values ${valuesYaml}"
         done
         
-        # Helm base command for both repo in remote or in a git repository.
-        helmBaseCommand="helm template $ARGOCD_ENV_chartReleaseName -n $ARGOCD_APP_NAMESPACE --kube-version ${KUBE_VERSION} --api-versions ${KUBE_API_VERSIONS//,/ --api-versions } ${externalYamlFiles} $ARGOCD_ENV_extraArgs"
-        # Helm chart location when helm chart in a git repository.
-        helmLocalChartFolder="$(pwd | cut -d "/" -f-4)/charts/$ARGOCD_ENV_chartName/"
-        # Dependency update should be done for local charts that has dependencies
-        helmLocalDependency="helm dependency update ${helmLocalChartFolder} 2>&1 >/dev/null;"
-        # Remote helm charts need releaseName, repo, and version defined.
-        helmRemoteExtra="$ARGOCD_ENV_chartName --repo $ARGOCD_ENV_chartRepository --version $ARGOCD_ENV_chartVersion"
+        # Helm base command for both a chart in it's own remote helmrepo, or in a git repository.
+        helmBaseCommand="helm template --name-template ${ARGOCD_ENV_chartReleaseName} --namespace ${ARGOCD_APP_NAMESPACE} --kube-version ${KUBE_VERSION} --api-versions ${KUBE_API_VERSIONS//,/ --api-versions } ${externalYamlFiles} ${ARGOCD_ENV_extraArgs}"
+        # Helm chart location when helm chart in the git repository.
+        helmLocalChart="${rootFolder}/charts/$ARGOCD_ENV_chartName/"
+        # Remote helm charts need releaseName, repo, and version defined to template them
+        helmRemoteChart="${ARGOCD_ENV_chartName} --repo ${ARGOCD_ENV_chartRepository} --version ${ARGOCD_ENV_chartVersion}"
+        
+        # Dependency update should be done for local charts if they have dependencies
+        helmLocalDependency="helm dependency update ${helmLocalChart} 2>&1 >/dev/null;"
         
         # If-else structure to determine which command should be executed
         if [[ "${ARGOCD_ENV_pluginName}" == 'argocd-vault-plugin' ]]; then
-          command='for yamlFile in $(ls -I Application.yaml -I Application.yml -1 | egrep "(ya?ml)$"); do cat ${yamlFile}; echo -e "\n---"; done'
+          command='find . -regex .*\.ya?ml ! -name Application.y*ml -exec bash -c "cat {}; echo; echo ---" \;'
         elif [[ "${ARGOCD_ENV_pluginName}" == 'argocd-vault-plugin-helm-local-repo' ]]; then
-          command="${helmLocalDependency} ${helmBaseCommand} ${helmLocalChartFolder}"
+          command="${helmLocalDependency} ${helmBaseCommand} ${helmLocalChart}"
         elif [[ "${ARGOCD_ENV_pluginName}" == 'argocd-vault-plugin-helm-remote-repo' ]]; then
-          command="${helmBaseCommand} ${helmRemoteExtra}"
+          command="${helmBaseCommand} ${helmRemoteChart}"
         fi
         
         # Evaluate the command
-        eval "${command} ${avpCommand}"
+        eval ${command} ${avpCommand}
 ```
 
 Here is the folder hierarchy. It has local and remote helm repositories, Kubernetes manifest YAML files, and deploying to specific clusters examples in it all at once.
 
 ```bash
-📦advanced-argocd-gitops/               ## 📦Git Folder
-├── 📜ApplicationSet.yaml               ## ├── 📜ApplicationSet manifest file that creates a child Application object for each definition will be done under the app folder.
-├── 📂charts                            ## ├── 📂Charts folder for apps helm repos. Add the helm chart here as a folder
-│   └── 📂hello-world-0.1.0             ## │   └── 📂Hello World helm chart added as an example with version
-│       ├── 📜.argocd-allow-concurrency ## │       ├── 📜Add .argocd-allow-concurrency for best practice. Read here https://argo-cd.readthedocs.io/en/stable/operator-manual/high_availability/#enable-concurrent-processing
-│       ├── 📂..........                ## │       ├── 📂Helm Chart specific files/folders
-│       └── 📜..........                ## │       └── 📜Helm Chart specific files/folders
-├── 📂clusters                          ## ├── 📂Add clusters and app definitions here. They will be generated for each cluster by ApplicationSet
-│   ├── 📂cluster-1                     ## │   ├── 📂'cluster-1' will get deployments defined in the folders under it.
-│   │   ├── 📂app-1                     ## │   │   ├── 📂Remote Helm Chart example. Base value will be used for this app. Check commonValues below.
-│   │   │   ├── 📜Application.yaml      ## │   │   │   ├── 📜Application.yaml file that holds the information about the helloworld remote Helm Chart.
-│   │   │   └── 📜values.yaml           ## │   │   │   └── 📜app-1 helm values yaml for cluster-1
-│   │   ├── 📂app-1-namespace           ## │   │   ├── 📂Creating namespace for newly created helloworld app with limit ranges and quota
-│   │   │   ├── 📜Application.yaml      ## │   │   │   ├── 📜Application.yaml file that holds the information for applying manifests to the clusters
-│   │   │   ├── 📜limitrange.yaml       ## │   │   │   ├── 📜app-1-namespace cluster-1 specific manifest yamls
-│   │   │   ├── 📜namespace.yaml        ## │   │   │   ├── 📜app-1-namespace cluster-1 specific manifest yamls
-│   │   │   └── 📜resourcequota.yaml    ## │   │   │   └── 📜app-1-namespace cluster-1 specific manifest yamls
-│   │   ├── 📂app-2                     ## │   │   ├── 📂Remote Helm Chart example. Base value will be used for this app. Check commonValues below.
-│   │   │   ├── 📜Application.yaml      ## │   │   │   ├── 📜Application.yaml file that holds the information about the helloworld remote Helm Chart.
-│   │   │   └── 📜values.yaml           ## │   │   │   └── 📜app-2 helm values yaml for cluster-1
-│   │   └── 📂app-2-namespace           ## │   │   └── 📂Creating namespace for newly created helloworld app with limit ranges and quota
-│   │       ├── 📜Application.yaml      ## │   │       ├── 📜Application.yaml file that holds the information for applying manifests to the clusters
-│   │       ├── 📜limitrange.yaml       ## │   │       ├── 📜app-2-namespace cluster-1 specific manifest yamls
-│   │       ├── 📜namespace.yaml        ## │   │       ├── 📜app-2-namespace cluster-1 specific manifest yamls
-│   │       └── 📜resourcequota.yaml    ## │   │       └── 📜app-2-namespace cluster-1 specific manifest yamls
-│   ├── 📂cluster-2                     ## │   ├── 📂'cluster-2' will get deployments defined in the folders under it.
-│   │   ├── 📂app-1                     ## │   │   ├── 📂Remote Helm Chart example. Base value will be used for this app. Check commonValues below.
-│   │   │   ├── 📜Application.yaml      ## │   │   │   ├── 📜Application.yaml file that holds the information about the helloworld remote Helm Chart.
-│   │   │   └── 📜values.yaml           ## │   │   │   └── 📜app-1 helm values yaml for cluster-2
-│   │   └── 📂app-1-namespace           ## │   │   └── 📂Creating namespace for newly created helloworld app with limit ranges and quota
-│   │       ├── 📜Application.yaml      ## │   │       ├── 📜Application.yaml file that holds the information for applying manifests to the clusters
-│   │       ├── 📜limitrange.yaml       ## │   │       ├── 📜app-1-namespace cluster-2 specific manifest yamls
-│   │       ├── 📜namespace.yaml        ## │   │       ├── 📜app-1-namespace cluster-2 specific manifest yamls
-│   │       └── 📜resourcequota.yaml    ## │   │       └── 📜app-1-namespace cluster-2 specific manifest yamls
-│   └── 📂in-cluster                    ## │   └── 📂I will maintain ArgoCD and other master cluster resources from here. In case anything happens to the master cluster, it will help us quickly install everything again with minimal downtime.
-│       ├── 📂argocd                    ## │       ├── 📂Remote Argo CD Helm Chart example to manage ArgoCD within ArgoCD
-│       │   ├── 📜Application.yaml      ## │       │   ├── 📜Application.yaml file that holds the information about the ArgoCD remote Helm Chart.
-│       │   └── 📜values.yaml           ## │       │   └── 📜All ArgoCD values
-│       └── 📂ingress-nginx             ## │       └── 📂Nginx ingress controller remote Helm Chart
-│           ├── 📜Application.yaml      ## │           ├── 📜Application.yaml file that holds the information about the Nginx ingress controller remote Helm Chart.
-│           └── 📜values.yaml           ## │           └── 📜Nginx ingress controller values
-└── 📂commonValues                      ## └── 📂Add base values of applications for all clusters here
-    └── 📜app-1-values.yaml             ##     └── 📜app-1 base values for all clusters
+📦advanced-argocd-gitops/                # 📦Git Folder
+ ├── 📜ApplicationSet.yaml               ## ├── 📜ApplicationSet manifest file that creates a child Application object for each definition will be done under the app folder.
+ ├── 📂charts                            ## ├── 📂Charts folder for apps helm repos. Add the helm chart here as a folder
+ │   └── 📂hello-world-0.1.0             ## │   └── 📂Hello World helm chart added as an example with version
+ │       ├── 📜.argocd-allow-concurrency ## │       ├── 📜Add .argocd-allow-concurrency for best practice. Read here https://argo-cd.readthedocs.io/en/stable/operator-manual/high_availability/#enable-concurrent-processing
+ │       ├── 📂..........                ## │       ├── 📂Helm Chart specific files/folders
+ │       └── 📜..........                ## │       └── 📜Helm Chart specific files/folders
+ ├── 📂clusters                          ## ├── 📂Add clusters and app definitions here. They will be generated for each cluster by ApplicationSet
+ │   ├── 📂cluster-1                     ## │   ├── 📂'cluster-1' will get deployments defined in the folders under it.
+ │   │   ├── 📂app-1                     ## │   │   ├── 📂Remote Helm Chart example. Base value will be used for this app. Check commonValues below.
+ │   │   │   ├── 📜Application.yaml      ## │   │   │   ├── 📜Application.yaml file that holds the information about the helloworld remote Helm Chart.
+ │   │   │   └── 📜values.yaml           ## │   │   │   └── 📜app-1 helm values yaml for cluster-1
+ │   │   ├── 📂app-1-namespace           ## │   │   ├── 📂Creating namespace for newly created helloworld app with limit ranges and quota
+ │   │   │   ├── 📜Application.yaml      ## │   │   │   ├── 📜Application.yaml file that holds the information for applying manifests to the clusters
+ │   │   │   ├── 📜limitrange.yaml       ## │   │   │   ├── 📜app-1-namespace cluster-1 specific manifest yamls
+ │   │   │   ├── 📜namespace.yaml        ## │   │   │   ├── 📜app-1-namespace cluster-1 specific manifest yamls
+ │   │   │   └── 📜resourcequota.yaml    ## │   │   │   └── 📜app-1-namespace cluster-1 specific manifest yamls
+ │   │   ├── 📂app-2                     ## │   │   ├── 📂Remote Helm Chart example. Base value will be used for this app. Check commonValues below.
+ │   │   │   ├── 📜Application.yaml      ## │   │   │   ├── 📜Application.yaml file that holds the information about the helloworld remote Helm Chart.
+ │   │   │   └── 📜values.yaml           ## │   │   │   └── 📜app-2 helm values yaml for cluster-1
+ │   │   └── 📂app-2-namespace           ## │   │   └── 📂Creating namespace for newly created helloworld app with limit ranges and quota
+ │   │       ├── 📜Application.yaml      ## │   │       ├── 📜Application.yaml file that holds the information for applying manifests to the clusters
+ │   │       ├── 📜limitrange.yaml       ## │   │       ├── 📜app-2-namespace cluster-1 specific manifest yamls
+ │   │       ├── 📜namespace.yaml        ## │   │       ├── 📜app-2-namespace cluster-1 specific manifest yamls
+ │   │       └── 📜resourcequota.yaml    ## │   │       └── 📜app-2-namespace cluster-1 specific manifest yamls
+ │   ├── 📂cluster-2                     ## │   ├── 📂'cluster-2' will get deployments defined in the folders under it.
+ │   │   ├── 📂app-1                     ## │   │   ├── 📂Remote Helm Chart example. Base value will be used for this app. Check commonValues below.
+ │   │   │   ├── 📜Application.yaml      ## │   │   │   ├── 📜Application.yaml file that holds the information about the helloworld remote Helm Chart.
+ │   │   │   └── 📜values.yaml           ## │   │   │   └── 📜app-1 helm values yaml for cluster-2
+ │   │   └── 📂app-1-namespace           ## │   │   └── 📂Creating namespace for newly created helloworld app with limit ranges and quota
+ │   │       ├── 📜Application.yaml      ## │   │       ├── 📜Application.yaml file that holds the information for applying manifests to the clusters
+ │   │       ├── 📜limitrange.yaml       ## │   │       ├── 📜app-1-namespace cluster-2 specific manifest yamls
+ │   │       ├── 📜namespace.yaml        ## │   │       ├── 📜app-1-namespace cluster-2 specific manifest yamls
+ │   │       └── 📜resourcequota.yaml    ## │   │       └── 📜app-1-namespace cluster-2 specific manifest yamls
+ │   └── 📂in-cluster                    ## │   └── 📂I will maintain ArgoCD and other master cluster resources from here. In case anything happens to the master cluster, it will help us quickly install everything again with minimal downtime.
+ │       ├── 📂argocd                    ## │       ├── 📂Remote Argo CD Helm Chart example to manage ArgoCD within ArgoCD
+ │       │   ├── 📜Application.yaml      ## │       │   ├── 📜Application.yaml file that holds the information about the ArgoCD remote Helm Chart.
+ │       │   └── 📜values.yaml           ## │       │   └── 📜All ArgoCD values
+ │       └── 📂ingress-nginx             ## │       └── 📂Nginx ingress controller remote Helm Chart
+ │           ├── 📜Application.yaml      ## │           ├── 📜Application.yaml file that holds the information about the Nginx ingress controller remote Helm Chart.
+ │           └── 📜values.yaml           ## │           └── 📜Nginx ingress controller values
+ └── 📂commonValues                      ## └── 📂Add base values of applications for all clusters here
+     └── 📂app-1                         ##     └──📂app-1 commonValues for all clusters.
+         └── 📜values.yaml               ##        └── 📜values.yaml that holds common values.
 ```
 
 ## Demo

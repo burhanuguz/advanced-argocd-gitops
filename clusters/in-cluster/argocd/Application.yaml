@@ -6,6 +6,6 @@ branch: 'master'
 appName: 'argocd'
 chartName: 'argo-cd'
 chartRepository: 'https://argoproj.github.io/argo-helm'
-chartVersion: '5.5.7'
+chartVersion: '5.16.4'
 namespace: 'argocd'
 # keyVault: argocd-vault-plugin-azure-credentials-in-cluster
