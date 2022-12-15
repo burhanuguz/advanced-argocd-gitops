@@ -95,8 +95,6 @@ spec:
         path: '{{ .path.path }}'
         plugin:
           env:
-            - name: clusterName
-              value: '{{ name }}'
             # Determines whether helm local or remote or just application manifest to be deployed
             - name: pluginName
               value: '{{ .plugin }}'
